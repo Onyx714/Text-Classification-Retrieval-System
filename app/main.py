@@ -4,8 +4,14 @@ import streamlit as st
 import sys
 import os
 
-# 添加项目根目录到路径
-sys.path.append('..')
+# ==== 核心修复：动态设置项目根目录路径 ====
+# 获取当前文件（main.py）的绝对路径，然后向上追溯两级得到项目根目录
+# 例如：/mount/src/your-project-name/app/main.py -> /mount/src/your-project-name
+_current_file_path = os.path.abspath(__file__)
+_project_root = os.path.dirname(os.path.dirname(_current_file_path))
+
+# 将项目根目录添加到Python模块搜索路径的最前面
+sys.path.insert(0, _project_root)
 
 # 页面配置
 st.set_page_config(
@@ -55,7 +61,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 导入项目模块
+# 导入项目模块 (现在sys.path已正确设置)
 from classification.classifier_model import TextClassifier
 from retrieval.searcher import DocumentSearcher
 from data.load_data import DataLoader
@@ -73,16 +79,22 @@ class TextRetrievalApp:
         """加载系统组件"""
         with st.spinner("正在加载系统组件..."):
             try:
+                # 注意：在Streamlit Cloud上，所有路径都应基于项目根目录
+                # 构建模型文件的绝对路径
+                model_dir = os.path.join(_project_root, 'classification', 'models')
+                
                 # 加载分类器
                 self.classifier = TextClassifier()
-                self.classifier.load_model()
+                self.classifier.load_model(model_dir) # 需修改classifier_model.py的load_model方法以接受路径参数
                 
-                # 加载检索器
+                # 加载检索器 (修改searcher.py，使其能接收基于_project_root的索引路径)
                 self.searcher = DocumentSearcher()
-                self.searcher.open_index()
+                index_dir = os.path.join(_project_root, 'retrieval', 'indexdir')
+                self.searcher.open_index(index_dir)
                 
-                # 加载类别映射
-                self.category_mapping = joblib.load('classification/models/category_mapping.pkl')
+                # 加载类别映射 (使用绝对路径)
+                mapping_path = os.path.join(model_dir, 'category_mapping.pkl')
+                self.category_mapping = joblib.load(mapping_path)
                 
                 # 反转映射：名称 -> ID
                 self.category_name_to_id = {v: k for k, v in self.category_mapping.items()}
@@ -135,13 +147,16 @@ class TextRetrievalApp:
             # 显示统计信息
             with st.expander("📊 系统统计"):
                 if hasattr(self, 'category_stats'):
-                    st.write(f"**文档总数:** {len(self.searcher.document_mapping)}")
+                    # 注意：首次运行document_mapping可能为空，需在searcher中初始化
+                    doc_count = len(self.searcher.document_mapping) if hasattr(self.searcher, 'document_mapping') else 0
+                    st.write(f"**文档总数:** {doc_count}")
                     st.write(f"**类别数量:** {len(self.category_mapping)}")
                     
                     # 显示前几个类别的文档数
-                    st.write("**文档分布:**")
-                    for cat, count in list(self.category_stats.items())[:10]:
-                        st.write(f"  - {cat}: {count}篇")
+                    if self.category_stats:
+                        st.write("**文档分布:**")
+                        for cat, count in list(self.category_stats.items())[:10]:
+                            st.write(f"  - {cat}: {count}篇")
             
             # 示例查询
             with st.expander("💡 示例查询"):
@@ -188,9 +203,13 @@ class TextRetrievalApp:
         # 搜索框
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
+            # 初始化session_state中的query
+            if 'query' not in st.session_state:
+                st.session_state['query'] = ''
+                
             query = st.text_input(
                 "🔍 输入搜索查询",
-                value=st.session_state.get('query', ''),
+                value=st.session_state['query'],
                 placeholder="例如：computer graphics, hockey game, space exploration...",
                 key="search_input"
             )
@@ -386,8 +405,9 @@ class TextRetrievalApp:
         
         # 这里可以加载之前保存的评估结果
         try:
-            # 加载分类器评估
-            eval_data = joblib.load('classification/models/evaluation.pkl')
+            # 使用绝对路径加载分类器评估
+            eval_path = os.path.join(_project_root, 'classification', 'models', 'evaluation.pkl')
+            eval_data = joblib.load(eval_path)
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -399,10 +419,11 @@ class TextRetrievalApp:
             with col4:
                 st.metric("F1分数", f"{eval_data['report']['weighted avg']['f1-score']:.2%}")
             
-            # 显示混淆矩阵图片
+            # 显示混淆矩阵图片 (使用绝对路径)
             st.markdown("#### 混淆矩阵")
             try:
-                st.image('classification/confusion_matrix.png')
+                conf_matrix_path = os.path.join(_project_root, 'classification', 'confusion_matrix.png')
+                st.image(conf_matrix_path)
             except:
                 st.info("混淆矩阵图片未生成")
                 
