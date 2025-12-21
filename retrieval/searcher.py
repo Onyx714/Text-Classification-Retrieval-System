@@ -19,18 +19,27 @@ class DocumentSearcher:
         self.ix = None
         self.document_mapping = None
         
-    def open_index(self):
-        """打开索引"""
+    def open_index(self, index_dir=None):
+        """打开索引
+
+        Args:
+            index_dir: 索引目录路径（可选，如果不提供则使用初始化时的路径）
+        """
+        if index_dir:
+            self.index_dir = index_dir
+
         if not os.path.exists(self.index_dir):
             raise FileNotFoundError(f"Index directory not found: {self.index_dir}")
-        
+
         self.ix = open_dir(self.index_dir)
-        
+
         # 加载文档映射
         mapping_file = os.path.join(self.index_dir, 'document_mapping.pkl')
         if os.path.exists(mapping_file):
             self.document_mapping = joblib.load(mapping_file)
-        
+        else:
+            self.document_mapping = {}
+
         return self.ix
     
     def search(self, query_text, category_filter=None, max_results=20):
@@ -122,16 +131,15 @@ class DocumentSearcher:
         """获取类别统计"""
         if not self.ix:
             self.open_index()
-        
-        with self.ix.searcher() as searcher:
-            from whoosh.query import Every
-            results = searcher.search(Every("category"), limit=0)
-            
-            categories = {}
-            for facet in results.groupby("category"):
-                categories[facet] = results.groups()[facet]
-            
-            return categories
+
+        # 从文档映射中统计类别
+        categories = {}
+        if self.document_mapping:
+            for doc_info in self.document_mapping.values():
+                cat = doc_info.get('category', 'Unknown')
+                categories[cat] = categories.get(cat, 0) + 1
+
+        return categories
     
     def search_with_classification(self, query_text, classifier, max_results=20):
         """结合分类的搜索"""

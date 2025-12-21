@@ -1,0 +1,445 @@
+{
+  "timestamp": "2025-12-21 15:54:23",
+  "dataset": {
+    "documents": 40000,
+    "categories": 4
+  },
+  "results": {
+    "classification": {
+      "overall": {
+        "precision": 0.9020111525444588,
+        "recall": 0.902125,
+        "f1": 0.9018478822573148,
+        "accuracy": 0.902125,
+        "inference_time_ms": 0.02791658043861389
+      },
+      "per_class": {
+        "Sci/Tech": {
+          "precision": 0.9227960354720918,
+          "recall": 0.8871614844533601,
+          "f1-score": 0.9046279723855791,
+          "support": 1994.0
+        },
+        "Sports": {
+          "precision": 0.939565627950897,
+          "recall": 0.9783677482792527,
+          "f1-score": 0.9585741811175337,
+          "support": 2034.0
+        },
+        "Business": {
+          "precision": 0.8843098311817279,
+          "recall": 0.8679337231968811,
+          "f1-score": 0.8760452533202164,
+          "support": 2052.0
+        },
+        "World": {
+          "precision": 0.8595592004100461,
+          "recall": 0.8734375,
+          "f1-score": 0.866442779643503,
+          "support": 1920.0
+        },
+        "accuracy": 0.902125,
+        "macro avg": {
+          "precision": 0.9015576737536908,
+          "recall": 0.9017251139823735,
+          "f1-score": 0.9014225466167081,
+          "support": 8000.0
+        },
+        "weighted avg": {
+          "precision": 0.9020111525444588,
+          "recall": 0.902125,
+          "f1-score": 0.9018478822573148,
+          "support": 8000.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          1769,
+          78,
+          81,
+          66
+        ],
+        [
+          27,
+          1990,
+          7,
+          10
+        ],
+        [
+          52,
+          21,
+          1781,
+          198
+        ],
+        [
+          69,
+          29,
+          145,
+          1677
+        ]
+      ],
+      "class_names": [
+        "Sci/Tech",
+        "Sports",
+        "Business",
+        "World"
+      ]
+    },
+    "retrieval": {},
+    "baselines": {
+      "Baseline (Pure Retrieval)": {
+        "P@5": {
+          "mean": 0.9854999999999999,
+          "std": 0.0762545080634581
+        },
+        "P@10": {
+          "mean": 0.9854999999999999,
+          "std": 0.0762545080634581
+        },
+        "R@10": {
+          "mean": 0.000146,
+          "std": 0.00013070577645995604
+        },
+        "MAP": {
+          "mean": 0.00015324999999999998,
+          "std": 0.00020970513359370955
+        },
+        "NDCG@10": {
+          "mean": 0.2684074550647798,
+          "std": 0.12839975254083497
+        },
+        "latency_ms": 27.884528636932373
+      },
+      "Baseline (Post-Filter)": {
+        "P@5": {
+          "mean": 0.43,
+          "std": 0.4950757517794625
+        },
+        "P@10": {
+          "mean": 0.43,
+          "std": 0.4950757517794625
+        },
+        "R@10": {
+          "mean": 6.500000000000001e-05,
+          "std": 0.00012196310917650468
+        },
+        "MAP": {
+          "mean": 7.500000000000002e-05,
+          "std": 0.0002085065946199304
+        },
+        "NDCG@10": {
+          "mean": 0.1191854219319803,
+          "std": 0.16458689481627786
+        },
+        "latency_ms": 28.429648876190186
+      },
+      "Proposed System": {
+        "P@5": {
+          "mean": 0.43,
+          "std": 0.4950757517794625
+        },
+        "P@10": {
+          "mean": 0.43,
+          "std": 0.4950757517794625
+        },
+        "R@10": {
+          "mean": 6.500000000000001e-05,
+          "std": 0.00012196310917650468
+        },
+        "MAP": {
+          "mean": 7.500000000000002e-05,
+          "std": 0.0002085065946199304
+        },
+        "NDCG@10": {
+          "mean": 0.1191854219319803,
+          "std": 0.16458689481627786
+        },
+        "latency_ms": 24.80621337890625
+      },
+      "Oracle (Perfect Class.)": {
+        "P@5": {
+          "mean": 1.0,
+          "std": 0.0
+        },
+        "P@10": {
+          "mean": 1.0,
+          "std": 0.0
+        },
+        "R@10": {
+          "mean": 0.000146,
+          "std": 0.00013070577645995604
+        },
+        "MAP": {
+          "mean": 0.000156,
+          "std": 0.00020991426821443085
+        },
+        "NDCG@10": {
+          "mean": 0.2720139819348408,
+          "std": 0.12929143579770302
+        },
+        "latency_ms": 28.03112030029297
+      }
+    },
+    "ablation": {
+      "0.0": {
+        "P@10": 0.3541666666666667,
+        "MAP": 4.1666666666666665e-05,
+        "Classification_Accuracy": 0.3541666666666667
+      },
+      "0.2": {
+        "P@10": 0.3541666666666667,
+        "MAP": 4.1666666666666665e-05,
+        "Classification_Accuracy": 0.3541666666666667
+      },
+      "0.4": {
+        "P@10": 0.4583333333333333,
+        "MAP": 5.4166666666666664e-05,
+        "Classification_Accuracy": 0.3541666666666667
+      },
+      "0.6": {
+        "P@10": 0.6458333333333334,
+        "MAP": 7.500000000000001e-05,
+        "Classification_Accuracy": 0.3541666666666667
+      },
+      "0.8": {
+        "P@10": 0.6927083333333334,
+        "MAP": 7.986111111111112e-05,
+        "Classification_Accuracy": 0.3541666666666667
+      },
+      "0.95": {
+        "P@10": 0.859375,
+        "MAP": 0.00010486111111111113,
+        "Classification_Accuracy": 0.3541666666666667
+      }
+    },
+    "case_studies": {
+      "success": [],
+      "failure": [
+        {
+          "query": "sharon says will seek coalition with",
+          "true": "World",
+          "predicted": "Sci/Tech",
+          "confidence": 0.9752864435990427,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "ignore arctic warming warnings at our",
+          "true": "Sci/Tech",
+          "predicted": "World",
+          "confidence": 0.932864815716723,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "drug delivering contact lenses revealed contact",
+          "true": "Sci/Tech",
+          "predicted": "World",
+          "confidence": 0.37694376952339914,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "hicks confirms abuse allegations accused australian",
+          "true": "World",
+          "predicted": "Sci/Tech",
+          "confidence": 0.7459459908447514,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "amd announces amd athlon fx amd",
+          "true": "Sci/Tech",
+          "predicted": "World",
+          "confidence": 0.9354970057613645,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "n korea says u s rights",
+          "true": "World",
+          "predicted": "Sci/Tech",
+          "confidence": 0.8439795166333637,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "deadline for black watch to assess",
+          "true": "World",
+          "predicted": "Sci/Tech",
+          "confidence": 0.9205779355439218,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "hackers jump on reported windows flaws",
+          "true": "Sci/Tech",
+          "predicted": "World",
+          "confidence": 0.9770480153756622,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "nasa spacecraft to pass close to",
+          "true": "Sci/Tech",
+          "predicted": "World",
+          "confidence": 0.981459569682365,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "ws reliability middleware released as open",
+          "true": "Sci/Tech",
+          "predicted": "World",
+          "confidence": 0.4866583778104678,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        }
+      ],
+      "boundary": [
+        {
+          "query": "local residents due for tax refund",
+          "true": "Business",
+          "predicted": "Business",
+          "confidence": 0.44301829951810556,
+          "correct": true,
+          "proposed_p10": 1.0,
+          "baseline_p10": 1.0,
+          "improvement": 0.0
+        },
+        {
+          "query": "playing catch up with the future",
+          "true": "Sports",
+          "predicted": "Sports",
+          "confidence": 0.6203774425618149,
+          "correct": true,
+          "proposed_p10": 1.0,
+          "baseline_p10": 1.0,
+          "improvement": 0.0
+        },
+        {
+          "query": "oracle s sweet on peoplesoft oracle",
+          "true": "Business",
+          "predicted": "Business",
+          "confidence": 0.568270358966087,
+          "correct": true,
+          "proposed_p10": 1.0,
+          "baseline_p10": 1.0,
+          "improvement": 0.0
+        },
+        {
+          "query": "china olympians return as heroes crowds",
+          "true": "World",
+          "predicted": "Sci/Tech",
+          "confidence": 0.3617339310940521,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "chinese olympians sing as beijing lures",
+          "true": "World",
+          "predicted": "Sci/Tech",
+          "confidence": 0.5692411676840892,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "monty gives europe early advantage at",
+          "true": "Sports",
+          "predicted": "Sports",
+          "confidence": 0.363737112209208,
+          "correct": true,
+          "proposed_p10": 1.0,
+          "baseline_p10": 1.0,
+          "improvement": 0.0
+        },
+        {
+          "query": "co founder of google s blogger",
+          "true": "Sci/Tech",
+          "predicted": "World",
+          "confidence": 0.6326684885545915,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "mtn ericsson sign g agreement johannesburg",
+          "true": "Sci/Tech",
+          "predicted": "World",
+          "confidence": 0.5522482649383091,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "uk cyberspace has a new calling",
+          "true": "Sci/Tech",
+          "predicted": "World",
+          "confidence": 0.4925266609635721,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        },
+        {
+          "query": "american voice on new terror video",
+          "true": "World",
+          "predicted": "Sci/Tech",
+          "confidence": 0.49185644533028783,
+          "correct": false,
+          "proposed_p10": 0.0,
+          "baseline_p10": 1.0,
+          "improvement": -1.0
+        }
+      ]
+    },
+    "query_types": {
+      "World": {
+        "P@10": 0.08,
+        "Classification_Accuracy": 0.08,
+        "Count": 25
+      },
+      "Sports": {
+        "P@10": 0.92,
+        "Classification_Accuracy": 0.92,
+        "Count": 25
+      },
+      "Business": {
+        "P@10": 0.84,
+        "Classification_Accuracy": 0.84,
+        "Count": 25
+      },
+      "Sci/Tech": {
+        "P@10": 0.08,
+        "Classification_Accuracy": 0.08,
+        "Count": 25
+      }
+    }
+  }
+}

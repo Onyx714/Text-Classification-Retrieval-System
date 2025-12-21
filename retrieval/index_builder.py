@@ -5,7 +5,7 @@ import sys
 sys.path.append('..')
 
 from whoosh.index import create_in, open_dir
-from whoosh.fields import Schema, TEXT, ID, NUMERIC
+from whoosh.fields import Schema, TEXT, ID, NUMERIC, KEYWORD
 from whoosh.analysis import StemmingAnalyzer
 import pandas as pd
 import joblib
@@ -14,21 +14,21 @@ from config import RETRIEVAL_CONFIG
 
 class IndexBuilder:
     """索引构建器"""
-    
+
     def __init__(self, index_dir=None):
         self.index_dir = index_dir or RETRIEVAL_CONFIG['index_dir']
         self.schema = None
         self.ix = None
-        
+
     def define_schema(self):
         """定义索引schema"""
         # 使用词干分析器（英文）
         analyzer = StemmingAnalyzer()
-        
+
         self.schema = Schema(
             doc_id=ID(stored=True, unique=True),
             content=TEXT(stored=True, analyzer=analyzer),
-            category=TEXT(stored=True),
+            category=ID(stored=True),  # 使用ID类型，不进行分词
             category_id=NUMERIC(stored=True),
             length=NUMERIC(stored=True)
         )

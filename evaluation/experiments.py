@@ -1,324 +1,753 @@
-# evaluation/experiments.py - 实验脚本
+# evaluation/experiments.py - Comprehensive Experiment Suite
 
 import sys
-sys.path.append('..')
+import os
+
+# Setup path
+_current_file = os.path.abspath(__file__)
+_project_root = os.path.dirname(os.path.dirname(_current_file))
+sys.path.insert(0, _project_root)
 
 import pandas as pd
 import numpy as np
 import joblib
 import json
+import time
 from tqdm import tqdm
 from datetime import datetime
+from collections import defaultdict
 
 from data.load_data import DataLoader
 from classification.classifier_model import TextClassifier
 from retrieval.searcher import DocumentSearcher
 from evaluation.metrics import RetrievalMetrics, ClassificationMetrics
 
-class SystemEvaluator:
-    """系统评估器"""
-    
-    def __init__(self):
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Set style
+plt.style.use('seaborn-v0_8-whitegrid')
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.size'] = 10
+plt.rcParams['figure.facecolor'] = 'white'
+
+
+class ExperimentRunner:
+    """Comprehensive Experiment Runner"""
+
+    def __init__(self, output_dir=None):
+        if output_dir is None:
+            output_dir = os.path.join(_project_root, 'results')
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+
         self.loader = DataLoader()
         self.classifier = None
         self.searcher = None
-        
-    def load_components(self):
-        """加载所有组件"""
-        # 加载分类器
+        self.df = None
+        self.category_mapping = None
+
+        self.results = {
+            'classification': {},
+            'retrieval': {},
+            'baselines': {},
+            'ablation': {},
+            'case_studies': {},
+            'query_types': {}
+        }
+
+    def setup(self):
+        """Initialize all components"""
+        print("=" * 70)
+        print("EXPERIMENT SETUP")
+        print("=" * 70)
+
+        model_dir = os.path.join(_project_root, 'classification', 'models')
+        index_dir = os.path.join(_project_root, 'retrieval', 'indexdir')
+
+        print("\n[1/4] Loading classifier...")
         self.classifier = TextClassifier()
-        self.classifier.load_model()
-        
-        # 加载检索器
+        self.classifier.load_model(model_dir)
+
+        print("[2/4] Loading retriever...")
         self.searcher = DocumentSearcher()
-        self.searcher.open_index()
-        
-        # 加载数据
+        self.searcher.open_index(index_dir)
+
+        print("[3/4] Loading dataset...")
         self.df = self.loader.load_20newsgroups()
-        
-        # 加载类别映射
-        self.category_mapping = joblib.load('classification/models/category_mapping.pkl')
-        
-    def evaluate_classification(self):
-        """评估分类器"""
-        print("Evaluating classifier...")
-        
-        # 获取测试数据（后20%）
+
+        print("[4/4] Loading category mapping...")
+        mapping_path = os.path.join(model_dir, 'category_mapping.pkl')
+        self.category_mapping = joblib.load(mapping_path)
+
+        print(f"\nSetup complete: {len(self.df):,} documents, {len(self.category_mapping)} categories")
+
+    # =========================================================================
+    # EXPERIMENT 1: Classification Evaluation
+    # =========================================================================
+
+    def experiment_classification(self):
+        """Evaluate classification model"""
+        print("\n" + "=" * 70)
+        print("EXPERIMENT 1: CLASSIFICATION MODEL EVALUATION")
+        print("=" * 70)
+
         train_size = int(len(self.df) * 0.8)
         test_df = self.df.iloc[train_size:]
-        
+
         X_test = test_df['text_clean'].tolist()
-        y_test = test_df['target'].tolist()
-        
-        # 预测
-        y_pred, _ = self.classifier.predict(X_test)
-        
-        # 计算指标
+        y_test = np.array(test_df['target'].tolist())
+
+        print(f"\nTest set size: {len(X_test)}")
+
+        start_time = time.time()
+        y_pred, y_probs = self.classifier.predict(X_test)
+        inference_time = time.time() - start_time
+
+        y_pred = np.array(y_pred)
+
         metrics = ClassificationMetrics.compute_metrics(y_test, y_pred)
-        
-        print("\nClassification Results:")
-        for metric, value in metrics.items():
-            print(f"  {metric}: {value:.4f}")
-        
-        # 绘制混淆矩阵
-        self.classifier.plot_confusion_matrix(
-            y_test, y_pred, 
-            class_names=list(self.category_mapping.values())
-        )
-        
+        metrics['inference_time_ms'] = inference_time / len(X_test) * 1000
+
+        print(f"\nResults:")
+        print(f"  Accuracy:  {metrics['accuracy']:.4f}")
+        print(f"  Precision: {metrics['precision']:.4f}")
+        print(f"  Recall:    {metrics['recall']:.4f}")
+        print(f"  F1 Score:  {metrics['f1']:.4f}")
+        print(f"  Latency:   {metrics['inference_time_ms']:.2f} ms/sample")
+
+        # Per-class report
+        from sklearn.metrics import classification_report, confusion_matrix
+
+        class_names = [self.category_mapping.get(i, f"Class_{i}")
+                       for i in range(len(self.category_mapping))]
+        short_names = [n.split('.')[-1] for n in class_names]
+
+        report = classification_report(y_test, y_pred, target_names=class_names, output_dict=True)
+        cm = confusion_matrix(y_test, y_pred)
+
+        self.results['classification'] = {
+            'overall': metrics,
+            'per_class': report,
+            'confusion_matrix': cm.tolist(),
+            'class_names': class_names
+        }
+
+        # Visualizations
+        self._plot_confusion_matrix(cm, short_names)
+        self._plot_per_class_metrics(report, class_names)
+
         return metrics
-    
-    def evaluate_retrieval(self, num_queries=50):
-        """评估检索系统"""
-        print(f"\nEvaluating retrieval with {num_queries} queries...")
-        
-        # 生成测试查询
-        test_queries = self._generate_test_queries(num_queries)
-        
-        results = {
-            'baseline': {'precision@5': [], 'precision@10': [], 'recall@10': [], 'map': []},
-            'proposed': {'precision@5': [], 'precision@10': [], 'recall@10': [], 'map': []}
+
+    def _plot_confusion_matrix(self, cm, class_names):
+        """Plot confusion matrix"""
+        fig, axes = plt.subplots(1, 2, figsize=(16, 7))
+
+        # Counts
+        sns.heatmap(cm, ax=axes[0], cmap='Blues', fmt='d', annot=True,
+                    xticklabels=class_names, yticklabels=class_names,
+                    annot_kws={'size': 8})
+        axes[0].set_title('Confusion Matrix (Counts)', fontsize=12, fontweight='bold')
+        axes[0].set_xlabel('Predicted')
+        axes[0].set_ylabel('True')
+        axes[0].tick_params(axis='x', rotation=45)
+        axes[0].tick_params(axis='y', rotation=0)
+
+        # Normalized
+        cm_norm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        sns.heatmap(cm_norm, ax=axes[1], cmap='Blues', fmt='.2f', annot=True,
+                    xticklabels=class_names, yticklabels=class_names,
+                    annot_kws={'size': 8})
+        axes[1].set_title('Confusion Matrix (Normalized)', fontsize=12, fontweight='bold')
+        axes[1].set_xlabel('Predicted')
+        axes[1].set_ylabel('True')
+        axes[1].tick_params(axis='x', rotation=45)
+        axes[1].tick_params(axis='y', rotation=0)
+
+        plt.tight_layout()
+        path = os.path.join(self.output_dir, 'confusion_matrix.png')
+        plt.savefig(path, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"  Saved: {path}")
+
+    def _plot_per_class_metrics(self, report, class_names):
+        """Plot per-class performance"""
+        short_names = [n.split('.')[-1] for n in class_names]
+
+        metrics_df = pd.DataFrame({
+            'Category': short_names,
+            'Precision': [report[n]['precision'] for n in class_names],
+            'Recall': [report[n]['recall'] for n in class_names],
+            'F1-Score': [report[n]['f1-score'] for n in class_names],
+            'Support': [report[n]['support'] for n in class_names]
+        })
+
+        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+
+        colors = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b']
+
+        for ax, metric, color in zip(axes.flat, ['Precision', 'Recall', 'F1-Score', 'Support'], colors):
+            bars = ax.barh(metrics_df['Category'], metrics_df[metric], color=color, edgecolor='white')
+            ax.set_xlabel(metric)
+            ax.set_title(f'{metric} by Category', fontweight='bold')
+            if metric != 'Support':
+                ax.set_xlim(0, 1)
+
+        plt.tight_layout()
+        path = os.path.join(self.output_dir, 'per_class_performance.png')
+        plt.savefig(path, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"  Saved: {path}")
+
+    # =========================================================================
+    # EXPERIMENT 2: Baseline Comparisons
+    # =========================================================================
+
+    def experiment_baselines(self, num_queries=100):
+        """Compare against baselines"""
+        print("\n" + "=" * 70)
+        print("EXPERIMENT 2: BASELINE COMPARISONS")
+        print("=" * 70)
+
+        test_queries = self._generate_queries(num_queries)
+        print(f"\nRunning {len(test_queries)} queries...")
+
+        systems = {
+            'Baseline (Pure Retrieval)': {'results': defaultdict(list), 'timing': []},
+            'Baseline (Post-Filter)': {'results': defaultdict(list), 'timing': []},
+            'Proposed System': {'results': defaultdict(list), 'timing': []},
+            'Oracle (Perfect Class.)': {'results': defaultdict(list), 'timing': []}
         }
-        
-        # 对每个查询进行评估
-        for i, (query, true_category) in enumerate(tqdm(test_queries)):
-            # 获取相关文档（同一类别的所有文档）
-            relevant_docs = self.df[self.df['target_name'] == true_category]['id'].tolist()
-            
-            # 1. Baseline: 无分类过滤
-            baseline_results = self.searcher.search(query, max_results=20)
-            baseline_docs = [r['doc_id'] for r in baseline_results]
-            
-            # 2. Proposed: 有分类过滤
-            proposed_results = self.searcher.search(query, true_category, max_results=20)
-            proposed_docs = [r['doc_id'] for r in proposed_results]
-            
-            # 计算指标
-            # Baseline
-            results['baseline']['precision@5'].append(
-                RetrievalMetrics.precision_at_k(relevant_docs, baseline_docs, k=5)
-            )
-            results['baseline']['precision@10'].append(
-                RetrievalMetrics.precision_at_k(relevant_docs, baseline_docs, k=10)
-            )
-            results['baseline']['recall@10'].append(
-                RetrievalMetrics.recall_at_k(relevant_docs, baseline_docs, k=10)
-            )
-            results['baseline']['map'].append(
-                RetrievalMetrics.average_precision(relevant_docs, baseline_docs)
-            )
-            
-            # Proposed
-            results['proposed']['precision@5'].append(
-                RetrievalMetrics.precision_at_k(relevant_docs, proposed_docs, k=5)
-            )
-            results['proposed']['precision@10'].append(
-                RetrievalMetrics.precision_at_k(relevant_docs, proposed_docs, k=10)
-            )
-            results['proposed']['recall@10'].append(
-                RetrievalMetrics.recall_at_k(relevant_docs, proposed_docs, k=10)
-            )
-            results['proposed']['map'].append(
-                RetrievalMetrics.average_precision(relevant_docs, proposed_docs)
-            )
-        
-        # 计算平均指标
+
+        for query, true_category in tqdm(test_queries, desc="Evaluating"):
+            relevant_docs = set(self.df[self.df['target_name'] == true_category]['id'].tolist())
+
+            # Baseline 1: Pure Retrieval
+            start = time.time()
+            results = self.searcher.search(query, None, max_results=20)
+            systems['Baseline (Pure Retrieval)']['timing'].append(time.time() - start)
+            docs = [r['doc_id'] for r in results]
+            self._calc_metrics(systems['Baseline (Pure Retrieval)']['results'], relevant_docs, docs)
+
+            # Baseline 2: Post-Filter
+            start = time.time()
+            all_results = self.searcher.search(query, None, max_results=50)
+            pred_cat, _ = self.classifier.predict(query)
+            pred_name = self.category_mapping.get(pred_cat[0], "")
+            filtered = [r['doc_id'] for r in all_results if r['category'] == pred_name][:20]
+            systems['Baseline (Post-Filter)']['timing'].append(time.time() - start)
+            self._calc_metrics(systems['Baseline (Post-Filter)']['results'], relevant_docs, filtered)
+
+            # Proposed: Classification-Guided
+            start = time.time()
+            pred_cat, _ = self.classifier.predict(query)
+            pred_name = self.category_mapping.get(pred_cat[0], "")
+            results = self.searcher.search(query, pred_name, max_results=20)
+            systems['Proposed System']['timing'].append(time.time() - start)
+            docs = [r['doc_id'] for r in results]
+            self._calc_metrics(systems['Proposed System']['results'], relevant_docs, docs)
+
+            # Oracle
+            start = time.time()
+            results = self.searcher.search(query, true_category, max_results=20)
+            systems['Oracle (Perfect Class.)']['timing'].append(time.time() - start)
+            docs = [r['doc_id'] for r in results]
+            self._calc_metrics(systems['Oracle (Perfect Class.)']['results'], relevant_docs, docs)
+
+        # Aggregate
         summary = {}
-        for system in ['baseline', 'proposed']:
-            summary[system] = {
-                metric: np.mean(values) 
-                for metric, values in results[system].items()
+        for name, data in systems.items():
+            summary[name] = {
+                metric: {'mean': np.mean(vals), 'std': np.std(vals)}
+                for metric, vals in data['results'].items()
             }
-        
-        # 打印结果
-        print("\nRetrieval Evaluation Results:")
-        print("=" * 60)
-        print(f"{'Metric':<15} {'Baseline':<12} {'Proposed':<12} {'Improvement':<12}")
-        print("-" * 60)
-        
-        for metric in ['precision@5', 'precision@10', 'recall@10', 'map']:
-            baseline_val = summary['baseline'][metric]
-            proposed_val = summary['proposed'][metric]
-            improvement = ((proposed_val - baseline_val) / baseline_val * 100) if baseline_val > 0 else 0
-            
-            print(f"{metric:<15} {baseline_val:.4f}{'':<5} {proposed_val:.4f}{'':<5} {improvement:+.1f}%")
-        
-        print("=" * 60)
-        
-        # 保存结果
-        self._save_results(summary, results)
-        
-        return summary, results
-    
-    def _generate_test_queries(self, num_queries):
-        """生成测试查询"""
-        queries = []
-        
-        # 从每个类别生成一些查询
-        categories = self.df['target_name'].unique()
-        queries_per_category = max(1, num_queries // len(categories))
-        
-        for category in categories:
-            # 获取该类别的文档
-            category_docs = self.df[self.df['target_name'] == category]
-            
-            if len(category_docs) > 0:
-                # 从文档中提取关键词作为查询
-                sample_docs = category_docs.sample(min(queries_per_category, len(category_docs)))
-                
-                for _, doc in sample_docs.iterrows():
-                    # 提取文档中的前几个词作为查询
-                    words = doc['text_clean'].split()[:5]
-                    query = ' '.join(words)
-                    
-                    if len(query) > 3:  # 确保查询有意义
-                        queries.append((query, category))
-        
-        # 如果不够，随机生成一些
-        if len(queries) < num_queries:
-            additional = num_queries - len(queries)
-            for _ in range(additional):
-                doc = self.df.sample(1).iloc[0]
-                words = doc['text_clean'].split()[:5]
-                query = ' '.join(words)
-                queries.append((query, doc['target_name']))
-        
-        return queries[:num_queries]
-    
-    def _save_results(self, summary, detailed_results):
-        """保存评估结果"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # 保存摘要
-        summary_file = f'evaluation/results_summary_{timestamp}.json'
-        with open(summary_file, 'w') as f:
-            json.dump(summary, f, indent=2)
-        
-        # 保存详细结果（只保存部分以减少文件大小）
-        results_file = f'evaluation/detailed_results_{timestamp}.pkl'
-        joblib.dump({
-            'summary': summary,
-            'sample_queries': detailed_results.get('sample_queries', []),
-            'timestamp': timestamp
-        }, results_file)
-        
-        print(f"\nResults saved to:\n  {summary_file}\n  {results_file}")
-    
-    def run_complete_evaluation(self):
-        """运行完整评估"""
-        print("=" * 60)
-        print("COMPREHENSIVE SYSTEM EVALUATION")
-        print("=" * 60)
-        
-        # 加载组件
-        self.load_components()
-        
-        # 1. 评估分类器
-        print("\n[1/3] CLASSIFICATION EVALUATION")
-        class_metrics = self.evaluate_classification()
-        
-        # 2. 评估检索系统
-        print("\n[2/3] RETRIEVAL EVALUATION")
-        retrieval_summary, _ = self.evaluate_retrieval(num_queries=100)
-        
-        # 3. 端到端评估
-        print("\n[3/3] END-TO-END EVALUATION")
-        end_to_end_results = self._evaluate_end_to_end()
-        
-        # 生成报告
-        report = self._generate_report(class_metrics, retrieval_summary, end_to_end_results)
-        
-        print("\n" + "=" * 60)
-        print("EVALUATION COMPLETED!")
-        print("=" * 60)
-        
-        return report
-    
-    def _evaluate_end_to_end(self, num_cases=20):
-        """端到端评估"""
-        print(f"Testing end-to-end system with {num_cases} queries...")
-        
-        cases = []
-        
-        # 从每个类别选择一些文档作为查询来源
-        for category in list(self.category_mapping.values())[:5]:  # 测试前5个类别
-            category_docs = self.df[self.df['target_name'] == category]
-            
-            if len(category_docs) > 0:
-                for _, doc in category_docs.sample(min(2, len(category_docs))).iterrows():
-                    # 从文档中提取查询
-                    query_words = doc['text_clean'].split()[:5]
-                    query = ' '.join(query_words)
-                    
-                    # 使用系统处理
-                    predicted_category, _ = self.classifier.predict(query)
-                    predicted_name = self.category_mapping.get(predicted_category[0], "Unknown")
-                    
-                    # 搜索
-                    results = self.searcher.search(query, predicted_name, max_results=5)
-                    
-                    cases.append({
-                        'query': query,
-                        'true_category': category,
-                        'predicted_category': predicted_name,
-                        'correct_prediction': (category == predicted_name),
-                        'results_count': len(results),
-                        'results': results[:3]  # 只保存前3个结果
-                    })
-        
-        # 计算准确率
-        correct_predictions = sum(1 for case in cases if case['correct_prediction'])
-        accuracy = correct_predictions / len(cases) if cases else 0
-        
-        print(f"  Category prediction accuracy: {accuracy:.2%}")
-        print(f"  Average results per query: {np.mean([c['results_count'] for c in cases]):.1f}")
-        
-        return {
-            'cases': cases[:10],  # 只返回前10个案例
-            'prediction_accuracy': accuracy,
-            'total_cases': len(cases)
+            summary[name]['latency_ms'] = np.mean(data['timing']) * 1000
+
+        self._print_baseline_table(summary)
+        self.results['baselines'] = summary
+        self._plot_baseline_comparison(summary)
+
+        return summary
+
+    def _calc_metrics(self, results_dict, relevant, retrieved):
+        """Calculate retrieval metrics"""
+        results_dict['P@5'].append(RetrievalMetrics.precision_at_k(relevant, retrieved, 5))
+        results_dict['P@10'].append(RetrievalMetrics.precision_at_k(relevant, retrieved, 10))
+        results_dict['R@10'].append(RetrievalMetrics.recall_at_k(relevant, retrieved, 10))
+        results_dict['MAP'].append(RetrievalMetrics.average_precision(relevant, retrieved))
+        results_dict['NDCG@10'].append(RetrievalMetrics.normalized_dcg(relevant, retrieved, 10))
+
+    def _print_baseline_table(self, summary):
+        """Print baseline comparison table"""
+        print("\n" + "-" * 95)
+        print(f"{'System':<28} {'P@5':<10} {'P@10':<10} {'R@10':<10} {'MAP':<10} {'NDCG@10':<10} {'Latency':<10}")
+        print("-" * 95)
+
+        for name in ['Baseline (Pure Retrieval)', 'Baseline (Post-Filter)', 'Proposed System', 'Oracle (Perfect Class.)']:
+            s = summary[name]
+            print(f"{name:<28} "
+                  f"{s['P@5']['mean']:.4f}     "
+                  f"{s['P@10']['mean']:.4f}     "
+                  f"{s['R@10']['mean']:.4f}     "
+                  f"{s['MAP']['mean']:.4f}     "
+                  f"{s['NDCG@10']['mean']:.4f}     "
+                  f"{s['latency_ms']:.1f}ms")
+
+        print("-" * 95)
+
+        # Improvement
+        base = summary['Baseline (Pure Retrieval)']['P@10']['mean']
+        prop = summary['Proposed System']['P@10']['mean']
+        if base > 0:
+            print(f"\nImprovement (P@10): {(prop-base)/base*100:+.1f}%")
+
+    def _plot_baseline_comparison(self, summary):
+        """Plot baseline comparison"""
+        systems = ['Baseline (Pure Retrieval)', 'Baseline (Post-Filter)', 'Proposed System', 'Oracle (Perfect Class.)']
+        short_names = ['Pure Retrieval', 'Post-Filter', 'Proposed', 'Oracle']
+        metrics = ['P@5', 'P@10', 'R@10', 'MAP', 'NDCG@10']
+        colors = ['#94a3b8', '#64748b', '#3b82f6', '#10b981']
+
+        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+        # Bar chart
+        x = np.arange(len(metrics))
+        width = 0.2
+
+        for i, (sys, label, color) in enumerate(zip(systems, short_names, colors)):
+            values = [summary[sys][m]['mean'] for m in metrics]
+            axes[0].bar(x + i * width, values, width, label=label, color=color, edgecolor='white')
+
+        axes[0].set_xlabel('Metric')
+        axes[0].set_ylabel('Score')
+        axes[0].set_title('Retrieval Performance Comparison', fontweight='bold')
+        axes[0].set_xticks(x + width * 1.5)
+        axes[0].set_xticklabels(metrics)
+        axes[0].legend(loc='upper right')
+        axes[0].set_ylim(0, 1)
+        axes[0].grid(axis='y', alpha=0.3)
+
+        # Latency
+        latencies = [summary[s]['latency_ms'] for s in systems]
+        bars = axes[1].bar(short_names, latencies, color=colors, edgecolor='white')
+        axes[1].set_xlabel('System')
+        axes[1].set_ylabel('Latency (ms)')
+        axes[1].set_title('Average Query Latency', fontweight='bold')
+        axes[1].grid(axis='y', alpha=0.3)
+
+        for bar, lat in zip(bars, latencies):
+            axes[1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3,
+                        f'{lat:.1f}', ha='center', fontsize=9)
+
+        plt.tight_layout()
+        path = os.path.join(self.output_dir, 'baseline_comparison.png')
+        plt.savefig(path, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"  Saved: {path}")
+
+    # =========================================================================
+    # EXPERIMENT 3: Ablation Study
+    # =========================================================================
+
+    def experiment_ablation(self, num_queries=50):
+        """Study impact of classification confidence threshold"""
+        print("\n" + "=" * 70)
+        print("EXPERIMENT 3: ABLATION STUDY (Confidence Threshold)")
+        print("=" * 70)
+
+        test_queries = self._generate_queries(num_queries)
+        thresholds = [0.0, 0.2, 0.4, 0.6, 0.8, 0.95]
+        threshold_results = {t: defaultdict(list) for t in thresholds}
+
+        for query, true_category in tqdm(test_queries, desc="Ablation"):
+            relevant_docs = set(self.df[self.df['target_name'] == true_category]['id'].tolist())
+
+            pred_cat, probs = self.classifier.predict(query)
+            pred_name = self.category_mapping.get(pred_cat[0], "")
+            confidence = probs[0][pred_cat[0]] if probs is not None else 0
+
+            for threshold in thresholds:
+                if confidence >= threshold:
+                    results = self.searcher.search(query, pred_name, max_results=20)
+                else:
+                    results = self.searcher.search(query, None, max_results=20)
+
+                docs = [r['doc_id'] for r in results]
+                threshold_results[threshold]['P@10'].append(
+                    RetrievalMetrics.precision_at_k(relevant_docs, docs, 10))
+                threshold_results[threshold]['MAP'].append(
+                    RetrievalMetrics.average_precision(relevant_docs, docs))
+                threshold_results[threshold]['correct'].append(
+                    1 if pred_name == true_category else 0)
+
+        # Aggregate
+        ablation = {}
+        for t in thresholds:
+            ablation[t] = {
+                'P@10': np.mean(threshold_results[t]['P@10']),
+                'MAP': np.mean(threshold_results[t]['MAP']),
+                'Classification_Accuracy': np.mean(threshold_results[t]['correct'])
+            }
+
+        print("\n" + "-" * 55)
+        print(f"{'Threshold':<12} {'P@10':<12} {'MAP':<12} {'Class. Acc.':<15}")
+        print("-" * 55)
+        for t in thresholds:
+            print(f"{t:<12.2f} {ablation[t]['P@10']:<12.4f} {ablation[t]['MAP']:<12.4f} {ablation[t]['Classification_Accuracy']:<15.4f}")
+        print("-" * 55)
+
+        self.results['ablation'] = ablation
+        self._plot_ablation(ablation, thresholds)
+
+        return ablation
+
+    def _plot_ablation(self, ablation, thresholds):
+        """Plot ablation study"""
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+        p10 = [ablation[t]['P@10'] for t in thresholds]
+        map_scores = [ablation[t]['MAP'] for t in thresholds]
+        class_acc = [ablation[t]['Classification_Accuracy'] for t in thresholds]
+
+        axes[0].plot(thresholds, p10, 'o-', label='P@10', color='#3b82f6', linewidth=2, markersize=8)
+        axes[0].plot(thresholds, map_scores, 's-', label='MAP', color='#10b981', linewidth=2, markersize=8)
+        axes[0].set_xlabel('Confidence Threshold')
+        axes[0].set_ylabel('Score')
+        axes[0].set_title('Retrieval vs Confidence Threshold', fontweight='bold')
+        axes[0].legend()
+        axes[0].set_xlim(-0.05, 1.0)
+        axes[0].set_ylim(0, 1)
+        axes[0].grid(True, alpha=0.3)
+
+        axes[1].plot(thresholds, class_acc, 'o-', color='#8b5cf6', linewidth=2, markersize=8)
+        axes[1].set_xlabel('Confidence Threshold')
+        axes[1].set_ylabel('Classification Accuracy')
+        axes[1].set_title('Classification Accuracy vs Threshold', fontweight='bold')
+        axes[1].set_xlim(-0.05, 1.0)
+        axes[1].set_ylim(0, 1)
+        axes[1].grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        path = os.path.join(self.output_dir, 'ablation_study.png')
+        plt.savefig(path, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"  Saved: {path}")
+
+    # =========================================================================
+    # EXPERIMENT 4: Query Type Analysis
+    # =========================================================================
+
+    def experiment_query_types(self, num_queries=100):
+        """Analyze performance by query type"""
+        print("\n" + "=" * 70)
+        print("EXPERIMENT 4: QUERY TYPE ANALYSIS")
+        print("=" * 70)
+
+        # AG News category groups
+        category_groups = {
+            'World': ['World'],
+            'Sports': ['Sports'],
+            'Business': ['Business'],
+            'Sci/Tech': ['Sci/Tech']
         }
-    
-    def _generate_report(self, class_metrics, retrieval_summary, end_to_end_results):
-        """生成评估报告"""
-        report = {
-            'evaluation_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'classification': class_metrics,
-            'retrieval': retrieval_summary,
-            'end_to_end': end_to_end_results,
-            'improvement': {}
-        }
-        
-        # 计算改进百分比
-        for metric in ['precision@5', 'precision@10', 'recall@10', 'map']:
-            baseline = retrieval_summary['baseline'][metric]
-            proposed = retrieval_summary['proposed'][metric]
-            if baseline > 0:
-                report['improvement'][metric] = {
-                    'absolute': proposed - baseline,
-                    'percentage': (proposed - baseline) / baseline * 100
+
+        test_queries = self._generate_queries(num_queries)
+        group_results = {g: defaultdict(list) for g in category_groups}
+
+        for query, true_category in tqdm(test_queries, desc="Query Types"):
+            group = None
+            for g, cats in category_groups.items():
+                if true_category in cats:
+                    group = g
+                    break
+            if group is None:
+                continue
+
+            relevant = set(self.df[self.df['target_name'] == true_category]['id'].tolist())
+
+            pred_cat, _ = self.classifier.predict(query)
+            pred_name = self.category_mapping.get(pred_cat[0], "")
+            results = self.searcher.search(query, pred_name, max_results=20)
+            docs = [r['doc_id'] for r in results]
+
+            group_results[group]['P@10'].append(RetrievalMetrics.precision_at_k(relevant, docs, 10))
+            group_results[group]['correct'].append(1 if pred_name == true_category else 0)
+
+        # Aggregate
+        query_types = {}
+        for g in category_groups:
+            if group_results[g]['P@10']:
+                query_types[g] = {
+                    'P@10': np.mean(group_results[g]['P@10']),
+                    'Classification_Accuracy': np.mean(group_results[g]['correct']),
+                    'Count': len(group_results[g]['P@10'])
                 }
-        
-        # 保存报告
-        report_file = f'evaluation/full_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
-        with open(report_file, 'w') as f:
-            json.dump(report, f, indent=2, default=str)
-        
-        print(f"\nFull report saved to: {report_file}")
-        
-        return report
+
+        print("\n" + "-" * 55)
+        print(f"{'Query Type':<15} {'P@10':<12} {'Class. Acc.':<15} {'Count':<10}")
+        print("-" * 55)
+        for g, s in query_types.items():
+            print(f"{g:<15} {s['P@10']:<12.4f} {s['Classification_Accuracy']:<15.4f} {s['Count']:<10}")
+        print("-" * 55)
+
+        self.results['query_types'] = query_types
+        self._plot_query_types(query_types)
+
+        return query_types
+
+    def _plot_query_types(self, query_types):
+        """Plot query type analysis"""
+        groups = list(query_types.keys())
+        p10 = [query_types[g]['P@10'] for g in groups]
+        acc = [query_types[g]['Classification_Accuracy'] for g in groups]
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        x = np.arange(len(groups))
+        width = 0.35
+
+        ax.bar(x - width/2, p10, width, label='P@10', color='#3b82f6', edgecolor='white')
+        ax.bar(x + width/2, acc, width, label='Classification Accuracy', color='#10b981', edgecolor='white')
+
+        ax.set_xlabel('Query Type')
+        ax.set_ylabel('Score')
+        ax.set_title('Performance by Query Type', fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels(groups)
+        ax.legend()
+        ax.set_ylim(0, 1)
+        ax.grid(axis='y', alpha=0.3)
+
+        plt.tight_layout()
+        path = os.path.join(self.output_dir, 'query_type_analysis.png')
+        plt.savefig(path, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"  Saved: {path}")
+
+    # =========================================================================
+    # EXPERIMENT 5: Case Studies
+    # =========================================================================
+
+    def experiment_case_studies(self, num_cases=15):
+        """Detailed case studies"""
+        print("\n" + "=" * 70)
+        print("EXPERIMENT 5: CASE STUDIES")
+        print("=" * 70)
+
+        cases = {'success': [], 'failure': [], 'boundary': []}
+        test_queries = self._generate_queries(num_cases * 5)
+
+        for query, true_category in tqdm(test_queries, desc="Case Studies"):
+            pred_cat, probs = self.classifier.predict(query)
+            pred_name = self.category_mapping.get(pred_cat[0], "")
+            confidence = probs[0][pred_cat[0]] if probs is not None else 0
+
+            relevant = set(self.df[self.df['target_name'] == true_category]['id'].tolist())
+
+            proposed = self.searcher.search(query, pred_name, max_results=10)
+            baseline = self.searcher.search(query, None, max_results=10)
+
+            p_p10 = RetrievalMetrics.precision_at_k(relevant, [r['doc_id'] for r in proposed], 10)
+            b_p10 = RetrievalMetrics.precision_at_k(relevant, [r['doc_id'] for r in baseline], 10)
+
+            case = {
+                'query': query[:80],
+                'true': true_category.split('.')[-1],
+                'predicted': pred_name.split('.')[-1] if pred_name else 'Unknown',
+                'confidence': confidence,
+                'correct': pred_name == true_category,
+                'proposed_p10': p_p10,
+                'baseline_p10': b_p10,
+                'improvement': p_p10 - b_p10
+            }
+
+            if case['correct'] and case['improvement'] > 0.05 and len(cases['success']) < num_cases:
+                cases['success'].append(case)
+            elif not case['correct'] and case['improvement'] < -0.05 and len(cases['failure']) < num_cases:
+                cases['failure'].append(case)
+            elif 0.35 <= confidence <= 0.65 and len(cases['boundary']) < num_cases:
+                cases['boundary'].append(case)
+
+        self._print_cases(cases)
+        self.results['case_studies'] = cases
+
+        return cases
+
+    def _print_cases(self, cases):
+        """Print case studies"""
+        for case_type, label in [('success', 'SUCCESS'), ('failure', 'FAILURE'), ('boundary', 'BOUNDARY')]:
+            print(f"\n--- {label} CASES ---")
+            for i, c in enumerate(cases[case_type][:3], 1):
+                print(f"[{i}] Query: {c['query'][:50]}...")
+                print(f"    True: {c['true']} | Pred: {c['predicted']} ({c['confidence']:.1%})")
+                print(f"    P@10: {c['baseline_p10']:.2f} -> {c['proposed_p10']:.2f} ({c['improvement']:+.2f})")
+
+    # =========================================================================
+    # Helper Methods
+    # =========================================================================
+
+    def _generate_queries(self, num_queries):
+        """Generate diverse test queries"""
+        queries = []
+        categories = list(self.category_mapping.values())
+        per_cat = max(1, num_queries // len(categories))
+
+        for cat in categories:
+            docs = self.df[self.df['target_name'] == cat]
+            if len(docs) > 0:
+                samples = docs.sample(min(per_cat, len(docs)))
+                for _, doc in samples.iterrows():
+                    words = doc['text_clean'].split()[:6]
+                    query = ' '.join(words)
+                    if len(query) > 5:
+                        queries.append((query, cat))
+
+        np.random.shuffle(queries)
+        return queries[:num_queries]
+
+    # =========================================================================
+    # Main Runner
+    # =========================================================================
+
+    def run_all(self):
+        """Run all experiments"""
+        print("\n" + "=" * 70)
+        print("COMPREHENSIVE EXPERIMENT SUITE")
+        print(f"Output: {self.output_dir}")
+        print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("=" * 70)
+
+        self.setup()
+
+        self.experiment_classification()
+        self.experiment_baselines(num_queries=100)
+        self.experiment_ablation(num_queries=50)
+        self.experiment_query_types(num_queries=100)
+        self.experiment_case_studies(num_cases=10)
+
+        self._save_report()
+        self._plot_summary()
+
+        print("\n" + "=" * 70)
+        print("ALL EXPERIMENTS COMPLETED")
+        print(f"Results saved to: {self.output_dir}")
+        print("=" * 70)
+
+    def _save_report(self):
+        """Save JSON report"""
+        report = {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'dataset': {'documents': len(self.df), 'categories': len(self.category_mapping)},
+            'results': {}
+        }
+
+        # Convert numpy types
+        for key, val in self.results.items():
+            report['results'][key] = json.loads(json.dumps(val, default=lambda x: float(x) if isinstance(x, (np.floating, np.integer)) else str(x)))
+
+        path = os.path.join(self.output_dir, 'experiment_report.json')
+        with open(path, 'w') as f:
+            json.dump(report, f, indent=2)
+        print(f"\nReport saved: {path}")
+
+    def _plot_summary(self):
+        """Plot summary dashboard"""
+        fig = plt.figure(figsize=(16, 12))
+
+        # 1. Classification metrics
+        ax1 = fig.add_subplot(2, 3, 1)
+        metrics = self.results['classification']['overall']
+        names = ['Accuracy', 'Precision', 'Recall', 'F1']
+        values = [metrics['accuracy'], metrics['precision'], metrics['recall'], metrics['f1']]
+        bars = ax1.bar(names, values, color=['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b'], edgecolor='white')
+        ax1.set_ylim(0, 1)
+        ax1.set_title('Classification Performance', fontweight='bold')
+        for bar, val in zip(bars, values):
+            ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02, f'{val:.3f}', ha='center', fontsize=9)
+
+        # 2. Baseline comparison
+        ax2 = fig.add_subplot(2, 3, 2)
+        systems = ['Pure Retrieval', 'Post-Filter', 'Proposed', 'Oracle']
+        p10_values = [
+            self.results['baselines']['Baseline (Pure Retrieval)']['P@10']['mean'],
+            self.results['baselines']['Baseline (Post-Filter)']['P@10']['mean'],
+            self.results['baselines']['Proposed System']['P@10']['mean'],
+            self.results['baselines']['Oracle (Perfect Class.)']['P@10']['mean']
+        ]
+        bars = ax2.bar(systems, p10_values, color=['#94a3b8', '#64748b', '#3b82f6', '#10b981'], edgecolor='white')
+        ax2.set_ylim(0, 1)
+        ax2.set_title('P@10 Comparison', fontweight='bold')
+        ax2.tick_params(axis='x', rotation=15)
+
+        # 3. Ablation
+        ax3 = fig.add_subplot(2, 3, 3)
+        thresholds = sorted(self.results['ablation'].keys())
+        p10_abl = [self.results['ablation'][t]['P@10'] for t in thresholds]
+        ax3.plot(thresholds, p10_abl, 'o-', color='#3b82f6', linewidth=2, markersize=8)
+        ax3.set_xlabel('Confidence Threshold')
+        ax3.set_ylabel('P@10')
+        ax3.set_title('Ablation: P@10 vs Threshold', fontweight='bold')
+        ax3.set_xlim(-0.05, 1.0)
+        ax3.grid(True, alpha=0.3)
+
+        # 4. Query types
+        ax4 = fig.add_subplot(2, 3, 4)
+        if self.results['query_types']:
+            groups = list(self.results['query_types'].keys())
+            qt_p10 = [self.results['query_types'][g]['P@10'] for g in groups]
+            ax4.bar(groups, qt_p10, color='#3b82f6', edgecolor='white')
+            ax4.set_ylim(0, 1)
+            ax4.set_title('P@10 by Query Type', fontweight='bold')
+            ax4.tick_params(axis='x', rotation=15)
+
+        # 5. Improvement summary
+        ax5 = fig.add_subplot(2, 3, 5)
+        base_p10 = self.results['baselines']['Baseline (Pure Retrieval)']['P@10']['mean']
+        prop_p10 = self.results['baselines']['Proposed System']['P@10']['mean']
+        orac_p10 = self.results['baselines']['Oracle (Perfect Class.)']['P@10']['mean']
+
+        improvement = (prop_p10 - base_p10) / base_p10 * 100 if base_p10 > 0 else 0
+        potential = (orac_p10 - prop_p10) / prop_p10 * 100 if prop_p10 > 0 else 0
+
+        bars = ax5.bar(['Achieved\nImprovement', 'Remaining\nPotential'], [improvement, potential],
+                       color=['#10b981', '#f59e0b'], edgecolor='white')
+        ax5.set_ylabel('Percentage (%)')
+        ax5.set_title('Improvement Analysis', fontweight='bold')
+        for bar, val in zip(bars, [improvement, potential]):
+            ax5.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, f'{val:.1f}%', ha='center', fontsize=10)
+
+        # 6. Key findings text
+        ax6 = fig.add_subplot(2, 3, 6)
+        ax6.axis('off')
+        findings = f"""
+KEY FINDINGS
+
+Classification:
+  - Accuracy: {metrics['accuracy']:.2%}
+  - F1 Score: {metrics['f1']:.4f}
+
+Retrieval:
+  - Baseline P@10: {base_p10:.4f}
+  - Proposed P@10: {prop_p10:.4f}
+  - Improvement: {improvement:+.1f}%
+
+Oracle P@10: {orac_p10:.4f}
+(Upper bound with perfect classification)
+        """
+        ax6.text(0.1, 0.5, findings, fontsize=11, verticalalignment='center',
+                fontfamily='monospace', bbox=dict(boxstyle='round', facecolor='#f8fafc', edgecolor='#e2e8f0'))
+
+        plt.tight_layout()
+        path = os.path.join(self.output_dir, 'experiment_summary.png')
+        plt.savefig(path, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"  Saved: {path}")
+
 
 def main():
-    """主评估函数"""
-    evaluator = SystemEvaluator()
-    report = evaluator.run_complete_evaluation()
-    
-    # 打印关键发现
-    print("\nKEY FINDINGS:")
-    print("-" * 40)
-    print(f"1. Classification Accuracy: {report['classification']['accuracy']:.2%}")
-    print(f"2. Retrieval Improvement (P@10): {report['improvement'].get('precision@10', {}).get('percentage', 0):+.1f}%")
-    print(f"3. End-to-end Prediction Accuracy: {report['end_to_end']['prediction_accuracy']:.2%}")
+    runner = ExperimentRunner()
+    runner.run_all()
+
 
 if __name__ == "__main__":
     main()

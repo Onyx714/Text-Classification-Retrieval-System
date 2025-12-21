@@ -94,13 +94,16 @@ class TextClassifier:
         
         # 保存评估结果
         if save_report:
+            import os
+            model_dir = 'classification/models'
+            os.makedirs(model_dir, exist_ok=True)
             eval_results = {
                 'accuracy': accuracy,
                 'report': report,
                 'y_true': y_test,
                 'y_pred': y_pred
             }
-            joblib.dump(eval_results, 'classification/models/evaluation.pkl')
+            joblib.dump(eval_results, os.path.join(model_dir, 'evaluation.pkl'))
         
         return accuracy, report
     

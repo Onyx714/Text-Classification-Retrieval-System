@@ -1,0 +1,656 @@
+{
+  "experiment_info": {
+    "timestamp": "2025-12-21 18:25:27",
+    "system": "Text Classification & Personalized Retrieval System",
+    "version": "2.0"
+  },
+  "dataset": {
+    "name": "AG News",
+    "total_documents": 40000,
+    "categories": [
+      "Sci/Tech",
+      "Sports",
+      "Business",
+      "World"
+    ],
+    "num_categories": 4,
+    "category_distribution": {
+      "Sci/Tech": 10000,
+      "Sports": 10000,
+      "Business": 10000,
+      "World": 10000
+    },
+    "simulated_users": 200,
+    "user_type_distribution": {
+      "focused": 48,
+      "active": 39,
+      "new": 54,
+      "diverse": 59
+    }
+  },
+  "experiments": {
+    "exp1_classification": {
+      "overall_metrics": {
+        "accuracy": 0.902125,
+        "precision_macro": 0.9015576737536908,
+        "precision_weighted": 0.9020111525444588,
+        "recall_macro": 0.9017251139823735,
+        "recall_weighted": 0.902125,
+        "f1_macro": 0.9014225466167081,
+        "f1_weighted": 0.9018478822573148,
+        "inference_time_total_s": 0.19811081886291504,
+        "inference_time_per_sample_ms": 0.02476385235786438
+      },
+      "per_class_metrics": {
+        "Sci/Tech": {
+          "precision": 0.9227960354720918,
+          "recall": 0.8871614844533601,
+          "f1-score": 0.9046279723855791,
+          "support": 1994.0
+        },
+        "Sports": {
+          "precision": 0.939565627950897,
+          "recall": 0.9783677482792527,
+          "f1-score": 0.9585741811175337,
+          "support": 2034.0
+        },
+        "Business": {
+          "precision": 0.8843098311817279,
+          "recall": 0.8679337231968811,
+          "f1-score": 0.8760452533202164,
+          "support": 2052.0
+        },
+        "World": {
+          "precision": 0.8595592004100461,
+          "recall": 0.8734375,
+          "f1-score": 0.866442779643503,
+          "support": 1920.0
+        },
+        "accuracy": 0.902125,
+        "macro avg": {
+          "precision": 0.9015576737536908,
+          "recall": 0.9017251139823735,
+          "f1-score": 0.9014225466167081,
+          "support": 8000.0
+        },
+        "weighted avg": {
+          "precision": 0.9020111525444588,
+          "recall": 0.902125,
+          "f1-score": 0.9018478822573148,
+          "support": 8000.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          1769,
+          78,
+          81,
+          66
+        ],
+        [
+          27,
+          1990,
+          7,
+          10
+        ],
+        [
+          52,
+          21,
+          1781,
+          198
+        ],
+        [
+          69,
+          29,
+          145,
+          1677
+        ]
+      ],
+      "class_names": [
+        "Sci/Tech",
+        "Sports",
+        "Business",
+        "World"
+      ]
+    },
+    "exp2_retrieval_baselines": {
+      "BM25 (No Filter)": {
+        "Category_P@5": {
+          "mean": 0.9733333333333333,
+          "std": 0.13836345053678173
+        },
+        "Category_P@10": {
+          "mean": 0.9748809523809524,
+          "std": 0.1279463974180004
+        },
+        "Category_P@20": {
+          "mean": 0.9748809523809524,
+          "std": 0.1279463974180004
+        },
+        "Hit@5": {
+          "mean": 0.98,
+          "std": 0.13999999999999999
+        },
+        "Hit@10": {
+          "mean": 0.99,
+          "std": 0.09949874371066199
+        },
+        "Hit@20": {
+          "mean": 0.995,
+          "std": 0.07053367989832943
+        },
+        "MRR": {
+          "mean": 0.9356071428571429,
+          "std": 0.20534403650377675
+        },
+        "latency_ms": {
+          "mean": 28.38034749031067,
+          "std": 2.2398750244874335
+        }
+      },
+      "BM25 + Classification": {
+        "Category_P@5": {
+          "mean": 0.48,
+          "std": 0.4995998398718719
+        },
+        "Category_P@10": {
+          "mean": 0.48,
+          "std": 0.4995998398718719
+        },
+        "Category_P@20": {
+          "mean": 0.48,
+          "std": 0.4995998398718719
+        },
+        "Hit@5": {
+          "mean": 0.47,
+          "std": 0.49909918853871116
+        },
+        "Hit@10": {
+          "mean": 0.47,
+          "std": 0.49909918853871116
+        },
+        "Hit@20": {
+          "mean": 0.475,
+          "std": 0.4993746088859545
+        },
+        "MRR": {
+          "mean": 0.4505238095238095,
+          "std": 0.49085065224749513
+        },
+        "classification_accuracy": {
+          "mean": 0.48,
+          "std": 0.4995998398718719
+        },
+        "confidence": {
+          "mean": 0.7595695586762313,
+          "std": 0.20156223656608432
+        },
+        "latency_ms": {
+          "mean": 25.33716082572937,
+          "std": 4.612508551897766
+        }
+      },
+      "BM25 + Personalization": {
+        "Category_P@5": {
+          "mean": 0.505,
+          "std": 0.4999749993749687
+        },
+        "Category_P@10": {
+          "mean": 0.5057142857142857,
+          "std": 0.49935468561015456
+        },
+        "Category_P@20": {
+          "mean": 0.5057142857142857,
+          "std": 0.49935468561015456
+        },
+        "Hit@5": {
+          "mean": 0.495,
+          "std": 0.4999749993749687
+        },
+        "Hit@10": {
+          "mean": 0.5,
+          "std": 0.5
+        },
+        "Hit@20": {
+          "mean": 0.505,
+          "std": 0.4999749993749687
+        },
+        "MRR": {
+          "mean": 0.4737380952380952,
+          "std": 0.4907446624224711
+        },
+        "latency_ms": {
+          "mean": 25.749465227127075,
+          "std": 4.419224383873428
+        }
+      },
+      "Oracle (Perfect)": {
+        "Category_P@5": {
+          "mean": 1.0,
+          "std": 0.0
+        },
+        "Category_P@10": {
+          "mean": 1.0,
+          "std": 0.0
+        },
+        "Category_P@20": {
+          "mean": 1.0,
+          "std": 0.0
+        },
+        "Hit@5": {
+          "mean": 0.99,
+          "std": 0.09949874371066199
+        },
+        "Hit@10": {
+          "mean": 0.99,
+          "std": 0.09949874371066199
+        },
+        "Hit@20": {
+          "mean": 0.995,
+          "std": 0.07053367989832943
+        },
+        "MRR": {
+          "mean": 0.9491904761904761,
+          "std": 0.18411697701322874
+        },
+        "latency_ms": {
+          "mean": 28.533872365951538,
+          "std": 2.208167446962872
+        }
+      }
+    },
+    "exp3_personalization": {
+      "focused": {
+        "baseline_CP": {
+          "mean": 0.9951428571428571,
+          "std": 0.024177911997760038
+        },
+        "classification_CP": {
+          "mean": 0.46,
+          "std": 0.49839743177508455
+        },
+        "personalized_CP": {
+          "mean": 0.56,
+          "std": 0.4963869458396342
+        },
+        "classification_accuracy": 0.46,
+        "num_queries": 50
+      },
+      "diverse": {
+        "baseline_CP": {
+          "mean": 0.9673333333333332,
+          "std": 0.13767756211929058
+        },
+        "classification_CP": {
+          "mean": 0.38,
+          "std": 0.4853864439804639
+        },
+        "personalized_CP": {
+          "mean": 0.4,
+          "std": 0.4898979485566356
+        },
+        "classification_accuracy": 0.38,
+        "num_queries": 50
+      },
+      "new": {
+        "baseline_CP": {
+          "mean": 0.9226666666666665,
+          "std": 0.22095147783066663
+        },
+        "classification_CP": {
+          "mean": 0.38,
+          "std": 0.4853864439804639
+        },
+        "personalized_CP": {
+          "mean": 0.42,
+          "std": 0.4935585071701226
+        },
+        "classification_accuracy": 0.38,
+        "num_queries": 50
+      },
+      "active": {
+        "baseline_CP": {
+          "mean": 0.986,
+          "std": 0.0748598690888516
+        },
+        "classification_CP": {
+          "mean": 0.48,
+          "std": 0.4995998398718719
+        },
+        "personalized_CP": {
+          "mean": 0.55,
+          "std": 0.49244289008980524
+        },
+        "classification_accuracy": 0.48,
+        "num_queries": 50
+      }
+    },
+    "exp4_cold_start": {
+      "0-3": {
+        "baseline": {
+          "mean": 0.9864417989417988,
+          "std": 0.07151960566759977
+        },
+        "classification": {
+          "mean": 0.4722222222222222,
+          "std": 0.4992277987669841
+        },
+        "personalized": {
+          "mean": 0.4722222222222222,
+          "std": 0.49922779876698414
+        },
+        "hybrid": {
+          "mean": 0.4444444444444444,
+          "std": 0.4969039949999533
+        },
+        "num_queries": 72
+      },
+      "4-10": {
+        "baseline": {
+          "mean": 0.9722222222222222,
+          "std": 0.1145307118227128
+        },
+        "classification": {
+          "mean": 0.5555555555555556,
+          "std": 0.4969039949999533
+        },
+        "personalized": {
+          "mean": 0.5,
+          "std": 0.5
+        },
+        "hybrid": {
+          "mean": 0.5,
+          "std": 0.5
+        },
+        "num_queries": 36
+      },
+      "11-30": {
+        "baseline": {
+          "mean": 1.0,
+          "std": 0.0
+        },
+        "classification": {
+          "mean": 0.5882352941176471,
+          "std": 0.49215295678475035
+        },
+        "personalized": {
+          "mean": 0.6176470588235294,
+          "std": 0.4859621071134796
+        },
+        "hybrid": {
+          "mean": 0.5588235294117647,
+          "std": 0.4965277357686509
+        },
+        "num_queries": 34
+      },
+      "31-80": {
+        "baseline": {
+          "mean": 0.9874542124542125,
+          "std": 0.06354737335658656
+        },
+        "classification": {
+          "mean": 0.45604395604395603,
+          "std": 0.49806411856279553
+        },
+        "personalized": {
+          "mean": 0.48992673992673996,
+          "std": 0.497296593429785
+        },
+        "hybrid": {
+          "mean": 0.5283882783882784,
+          "std": 0.49658783518680966
+        },
+        "num_queries": 182
+      },
+      "80+": {
+        "baseline": {
+          "mean": 0.9578947368421052,
+          "std": 0.16141900192612235
+        },
+        "classification": {
+          "mean": 0.42105263157894735,
+          "std": 0.4937279747182557
+        },
+        "personalized": {
+          "mean": 0.5828947368421052,
+          "std": 0.4818107725016273
+        },
+        "hybrid": {
+          "mean": 0.6585526315789473,
+          "std": 0.46512506509248164
+        },
+        "num_queries": 76
+      }
+    },
+    "exp5_user_satisfaction": {
+      "overall": {
+        "baseline": {
+          "mean": 0.9857233333333332,
+          "std": 0.03554493416008032
+        },
+        "personalized": {
+          "mean": 0.5609333333333333,
+          "std": 0.23776369221000362
+        }
+      },
+      "improvement": -0.4247899999999999,
+      "num_sessions": 100,
+      "by_user_type": {
+        "new": {
+          "baseline": 0.9863733333333334,
+          "personalized": 0.6,
+          "count": 25
+        },
+        "active": {
+          "baseline": 0.97545,
+          "personalized": 0.5576666666666668,
+          "count": 20
+        },
+        "diverse": {
+          "baseline": 0.9932631578947368,
+          "personalized": 0.5368421052631579,
+          "count": 38
+        },
+        "focused": {
+          "baseline": 0.98,
+          "personalized": 0.5611764705882354,
+          "count": 17
+        }
+      }
+    },
+    "exp6_ablation": {
+      "confidence_threshold": {
+        "0.3": {
+          "mean": 0.53,
+          "std": 0.49909918853871116
+        },
+        "0.5": {
+          "mean": 0.5766666666666667,
+          "std": 0.4918333050943175
+        },
+        "0.7": {
+          "mean": 0.5566666666666666,
+          "std": 0.4945368203346104
+        },
+        "0.9": {
+          "mean": 0.5266666666666666,
+          "std": 0.4970580113695651
+        }
+      },
+      "personalization_alpha": {
+        "0.0": {
+          "mean": 0.6066666666666667,
+          "std": 0.4862098312457287
+        },
+        "0.25": {
+          "mean": 0.6066666666666667,
+          "std": 0.4862098312457287
+        },
+        "0.5": {
+          "mean": 0.6066666666666667,
+          "std": 0.4862098312457287
+        },
+        "0.75": {
+          "mean": 0.6066666666666667,
+          "std": 0.4862098312457287
+        },
+        "1.0": {
+          "mean": 0.6066666666666667,
+          "std": 0.4862098312457287
+        }
+      }
+    },
+    "exp7_error_analysis": {
+      "success_cases": [],
+      "failure_cases": [
+        {
+          "query": "thousands uprooted by clashes in",
+          "true_category": "World",
+          "predicted_category": "Sci/Tech",
+          "confidence": 0.9376699679381436,
+          "classification_correct": false,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "improvement": -1.0,
+          "user_type": "focused"
+        },
+        {
+          "query": "korean and japanese phone makers win survey",
+          "true_category": "Sci/Tech",
+          "predicted_category": "World",
+          "confidence": 0.6115211788700963,
+          "classification_correct": false,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "improvement": -1.0,
+          "user_type": "new"
+        },
+        {
+          "query": "egypt to host military",
+          "true_category": "World",
+          "predicted_category": "Sci/Tech",
+          "confidence": 0.8728932551603266,
+          "classification_correct": false,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "improvement": -1.0,
+          "user_type": "diverse"
+        },
+        {
+          "query": "best buy pushes its insignia brand san francisco",
+          "true_category": "Business",
+          "predicted_category": "World",
+          "confidence": 0.5320745372253246,
+          "classification_correct": false,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "improvement": -1.0,
+          "user_type": "active"
+        },
+        {
+          "query": "indonesian former general heading",
+          "true_category": "World",
+          "predicted_category": "Sci/Tech",
+          "confidence": 0.7789812782018906,
+          "classification_correct": false,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "improvement": -1.0,
+          "user_type": "focused"
+        },
+        {
+          "query": "oracle creates hosting program",
+          "true_category": "Sci/Tech",
+          "predicted_category": "World",
+          "confidence": 0.7226990050238273,
+          "classification_correct": false,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "improvement": -1.0,
+          "user_type": "focused"
+        },
+        {
+          "query": "ukraine s yushchenko hails reform ukraine s opposition",
+          "true_category": "World",
+          "predicted_category": "Sci/Tech",
+          "confidence": 0.9771270161627369,
+          "classification_correct": false,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "improvement": -1.0,
+          "user_type": "diverse"
+        },
+        {
+          "query": "bush to focus on tort reform",
+          "true_category": "World",
+          "predicted_category": "Sci/Tech",
+          "confidence": 0.6412902825772318,
+          "classification_correct": false,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "improvement": -1.0,
+          "user_type": "new"
+        },
+        {
+          "query": "gene mutation linked to strokes and heart",
+          "true_category": "Sci/Tech",
+          "predicted_category": "World",
+          "confidence": 0.5596115460337924,
+          "classification_correct": false,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "improvement": -1.0,
+          "user_type": "active"
+        },
+        {
+          "query": "intel dual core chips",
+          "true_category": "Sci/Tech",
+          "predicted_category": "World",
+          "confidence": 0.989599750113652,
+          "classification_correct": false,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "improvement": -1.0,
+          "user_type": "focused"
+        }
+      ],
+      "error_patterns": {
+        "Classification Error": 48,
+        "Severe Degradation": 50,
+        "Cold Start User": 11,
+        "Low Confidence": 10
+      },
+      "category_analysis": {
+        "World": {
+          "accuracy": 0.05263157894736842,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.0,
+          "count": 19
+        },
+        "Sports": {
+          "accuracy": 0.967741935483871,
+          "baseline_cp": 1.0,
+          "personalized_cp": 0.967741935483871,
+          "count": 31
+        },
+        "Business": {
+          "accuracy": 0.75,
+          "baseline_cp": 0.9479166666666666,
+          "personalized_cp": 0.7083333333333334,
+          "count": 24
+        },
+        "Sci/Tech": {
+          "accuracy": 0.11538461538461539,
+          "baseline_cp": 0.9583333333333333,
+          "personalized_cp": 0.07692307692307693,
+          "count": 26
+        }
+      },
+      "stats": {
+        "success_count": 0,
+        "failure_count": 53,
+        "overall_classification_accuracy": 0.52
+      }
+    }
+  }
+}

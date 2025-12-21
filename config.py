@@ -1,18 +1,10 @@
 # config.py - 系统配置
 
-# 数据集配置
+# 数据集配置 - AG News Dataset
 DATASET_CONFIG = {
-    'name': '20newsgroups',
-    'categories': ['alt.atheism', 'comp.graphics', 'comp.os.ms-windows.misc', 
-                   'comp.sys.ibm.pc.hardware', 'comp.sys.mac.hardware', 
-                   'comp.windows.x', 'misc.forsale', 'rec.autos', 
-                   'rec.motorcycles', 'rec.sport.baseball', 'rec.sport.hockey', 
-                   'sci.crypt', 'sci.electronics', 'sci.med', 'sci.space', 
-                   'soc.religion.christian', 'talk.politics.guns', 
-                   'talk.politics.mideast', 'talk.politics.misc', 
-                   'talk.religion.misc'],
-    'subset': 'all',  # 'train', 'test', 'all'
-    'remove': ('headers', 'footers', 'quotes')  # 移除邮件头尾
+    'name': 'ag_news',
+    'categories': ['World', 'Sports', 'Business', 'Sci/Tech'],
+    'num_samples': 10000,  # 每个类别的样本数，设置为None使用全部数据
 }
 
 # 分类器配置
